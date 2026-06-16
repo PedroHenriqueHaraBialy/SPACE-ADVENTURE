@@ -1,0 +1,291 @@
+let tela = 'menu'; 
+let score = 0;
+let vidas = 3;
+let nivel = 1;
+
+let jogador;
+let asteroides = [];
+let tiros = [];
+
+let imgFundo; 
+
+function preload() {
+  imgFundo = loadImage('sky war.jpg'); 
+}
+
+function setup() {
+  createCanvas(800, 600);
+  inicializarJogo();
+}
+
+function draw() {
+  background(imgFundo);
+
+  if (tela === 'menu') {
+    desenharMenu();
+  } else if (tela === 'sobre') {
+    desenharSobre();
+  } else if (tela === 'jogo') {
+    rodarJogo();
+  } else if (tela === 'gameover') {
+    desenharGameOver();
+  }
+}
+
+function inicializarJogo() {
+  score = 0;
+  vidas = 3;
+  nivel = 1;
+  jogador = new Jogador();
+  asteroides = [];
+  tiros = [];
+  
+  // Criar asteroides iniciais
+  for (let i = 0; i < 5; i++) {
+    asteroides.push(new Asteroide());
+  }
+}
+
+function desenharMenu() {
+  fill(0, 0, 0, 150);
+  rect(0, 0, width, height);
+
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(40);
+  text("🚀 SPACE ADVENTURE", width / 2, height / 2 - 100);
+  
+  textSize(20);
+  text("Pressione ENTER para Jogar", width / 2, height / 2);
+  text("Pressione S para ver os Créditos (Sobre)", width / 2, height / 2 + 50);
+  
+  textSize(14);
+  fill(200);
+  text("Controles: Setas (Girar/Mover) | Barra de Espaço (Atirar)", width / 2, height - 50);
+}
+
+function desenharSobre() {
+  fill(0, 0, 0, 180);
+  rect(0, 0, width, height);
+
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(32);
+  text("SOBRE O JOGO", width / 2, height / 2 - 120);
+  
+  textSize(20);
+  fill(200);
+  text("Desenvolvido por:", width / 2, height / 2 - 40);
+  
+  fill(0, 255, 255);
+  textSize(24);
+  text("Pedro Henrique Hara Bialy", width / 2, height / 2 + 10);
+  
+  fill(255);
+  textSize(16);
+  text("Pressione ESC para voltar ao Menu", width / 2, height / 2 + 130);
+}
+
+function desenharGameOver() {
+  fill(0, 0, 0, 200);
+  rect(0, 0, width, height);
+
+  textAlign(CENTER, CENTER);
+  fill(255, 0, 0);
+  textSize(50);
+  text("GAME OVER", width / 2, height / 2 - 50);
+  
+  fill(255);
+  textSize(20);
+  text("Pontuação Final: " + score, width / 2, height / 2 + 10);
+  text("Pressione ENTER para tentar novamente", width / 2, height / 2 + 60);
+}
+
+function rodarJogo() {
+  jogador.atualizar();
+  jogador.desenhar();
+
+  for (let i = tiros.length - 1; i >= 0; i--) {
+    tiros[i].atualizar();
+    tiros[i].desenhar();
+    
+    if (tiros[i].foraDaTela()) {
+      tiros.splice(i, 1);
+      continue;
+    }
+
+    for (let j = asteroides.length - 1; j >= 0; j--) {
+      if (tiros[i].colideCom(asteroides[j])) {
+        score += 10;
+        asteroides.splice(j, 1);
+        tiros.splice(i, 1);
+        
+        if (score % 50 === 0) {
+          nivel++;
+        }
+        
+        asteroides.push(new Asteroide());
+        break;
+      }
+    }
+  }
+
+  for (let asteroide of asteroides) {
+    asteroide.atualizar();
+    asteroide.desenhar();
+
+    if (jogador.colideCom(asteroide)) {
+      vidas--;
+      inicializarPosicaoElementos();
+      if (vidas <= 0) {
+        tela = 'gameover';
+      }
+    }
+  }
+
+  desenharHUD();
+}
+
+function inicializarPosicaoElementos() {
+  jogador.posicao = createVector(width / 2, height / 2);
+  jogador.velocidade.mult(0);
+}
+
+function desenharHUD() {
+  fill(0, 0, 0, 100);
+  noStroke();
+  rect(0, 0, width, 80);
+
+  fill(255);
+  textSize(18);
+  textAlign(LEFT, TOP);
+  text("SCORE: " + score, 20, 20);
+  text("NÍVEL: " + nivel, 20, 45);
+  
+  textAlign(RIGHT, TOP);
+  text("VIDAS: " + "❤️".repeat(max(0, vidas)), width - 20, 20);
+}
+
+function keyPressed() {
+  if (tela === 'menu') {
+    if (keyCode === ENTER) tela = 'jogo';
+    if (key === 's' || key === 'S') tela = 'sobre';
+  } else if (tela === 'sobre') {
+    if (keyCode === ESCAPE) tela = 'menu';
+  } else if (tela === 'gameover') {
+    if (keyCode === ENTER) {
+      inicializarJogo();
+      tela = 'jogo';
+    }
+  } else if (tela === 'jogo') {
+    if (key === ' ') {
+      tiros.push(new Tiro(jogador.posicao, jogador.angulo));
+    }
+  }
+}
+
+
+class Jogador {
+  constructor() {
+    this.posicao = createVector(width / 2, height / 2);
+    this.velocidade = createVector(0, 0);
+    this.aceleracao = createVector(0, 0);
+    this.angulo = 0;
+    this.raio = 15;
+  }
+
+  atualizar() {
+    if (keyIsDown(LEFT_ARROW)) this.angulo -= 0.05;
+    if (keyIsDown(RIGHT_ARROW)) this.angulo += 0.05;
+
+    if (keyIsDown(UP_ARROW)) {
+      let forca = p5.Vector.fromAngle(this.angulo);
+      forca.mult(0.1);
+      this.velocidade.add(forca);
+    }
+
+    this.velocidade.limit(4);
+    this.posicao.add(this.velocidade);
+    this.velocidade.mult(0.97);
+
+    if (this.posicao.x > width) this.posicao.x = 0;
+    if (this.posicao.x < 0) this.posicao.x = width;
+    if (this.posicao.y > height) this.posicao.y = 0;
+    if (this.posicao.y < 0) this.posicao.y = height;
+  }
+
+  desenhar() {
+    push();
+    translate(this.posicao.x, this.posicao.y);
+    rotate(this.angulo);
+    
+    stroke(255);
+    strokeWeight(2);
+    fill(0, 150, 255);
+    triangle(-this.raio, -this.raio, -this.raio, this.raio, this.raio * 1.5, 0);
+    pop();
+  }
+
+  colideCom(asteroide) {
+    let d = dist(this.posicao.x, this.posicao.y, asteroide.posicao.x, asteroide.posicao.y);
+    return d < this.raio + asteroide.raio;
+  }
+}
+
+class Asteroide {
+  constructor() {
+    this.posicao = createVector(random(width), random(height));
+    while (dist(this.posicao.x, this.posicao.y, width/2, height/2) < 100) {
+      this.posicao = createVector(random(width), random(height));
+    }
+    this.velocidade = p5.Vector.random2D().mult(random(1, 2.5));
+    this.raio = random(20, 45);
+  }
+
+  atualizar() {
+    this.posicao.add(this.velocidade);
+
+    if (this.posicao.x > width) this.posicao.x = 0;
+    if (this.posicao.x < 0) this.posicao.x = width;
+    if (this.posicao.y > height) this.posicao.y = 0;
+    if (this.posicao.y < 0) this.posicao.y = height;
+  }
+
+  desenhar() {
+    push();
+    stroke(255);
+    strokeWeight(1.5);
+    fill(100, 80, 80, 220); 
+    circle(this.posicao.x, this.posicao.y, this.raio * 2);
+    pop();
+  }
+}
+
+class Tiro {
+  constructor(posicaoNave, anguloNave) {
+    this.posicao = createVector(posicaoNave.x, posicaoNave.y);
+    this.velocidade = p5.Vector.fromAngle(anguloNave).mult(7);
+    this.raio = 4;
+  }
+
+  atualizar() {
+    this.posicao.add(this.velocidade);
+  }
+
+  desenhar() {
+    push();
+    noStroke();
+    fill(255, 255, 0);
+    circle(this.posicao.x, this.posicao.y, this.raio * 2);
+    pop();
+  }
+
+  foraDaTela() {
+    return (this.posicao.x > width || this.posicao.x < 0 || this.posicao.y > height || this.posicao.y < 0);
+  }
+
+  colideCom(asteroide) {
+    let d = dist(this.posicao.x, this.posicao.y, asteroide.posicao.x, asteroide.posicao.y);
+    return d < this.raio + asteroide.raio;
+  }
+}
